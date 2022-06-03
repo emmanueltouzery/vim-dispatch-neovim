@@ -61,6 +61,12 @@ function! dispatch#neovim#handle(request) abort
 	let opts = s:CommandOptions(a:request)
 	if s:UsesTerminal(a:request)
 		if s:NeedsOutput(a:request)
+			if exists("g:test_term_buf_id")
+				if bufexists(g:test_term_buf_id)
+					" close any terminals from previous test runs
+					execute 'silent bd! ' . g:test_term_buf_id
+				endif
+			endif
 			execute 'botright split | enew | resize 10'
 			let opts.buf_id = bufnr('%')
 			call termopen(cmd, opts)
@@ -158,7 +164,9 @@ function! s:JobExit(job_id, data, event) dict abort
 			execute term_win . ' wincmd w'
 			call feedkeys("\<C-\>\<C-n>", 'n')
 			execute cur_win . ' wincmd w'
-			execute 'silent bd! ' . self.buf_id
+			let g:test_term_buf_id = self.buf_id
+			" close the terminal window
+			silent execute term_win 'wincmd c'
 		endif
 	endif
 	call writefile([a:data], self.tempfile . '.complete')

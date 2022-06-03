@@ -3,6 +3,10 @@
 Add support for neovim's terminal emulator and job control to
 [dispatch.vim][dispatch].
 
+This version is modified from the upstream @radenling version by keeping the
+buffer for the terminal open after the run (useful in combination with vim-test
+for inspection of the results).
+
 ## Usage
 
 _Note: This plugin depends on [dispatch.vim][dispatch] and you need to have that
