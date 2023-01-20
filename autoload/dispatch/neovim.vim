@@ -67,7 +67,7 @@ function! dispatch#neovim#handle(request) abort
 					execute 'silent bd! ' . g:test_term_buf_id
 				endif
 			endif
-			execute 'botright split | enew | resize 10'
+			execute 'botright split | enew | resize 15'
 			let opts.buf_id = bufnr('%')
 			call termopen(cmd, opts)
 			call s:SaveCurrentBufferPid(a:request)
