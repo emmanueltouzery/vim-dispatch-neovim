@@ -71,6 +71,8 @@ function! dispatch#neovim#handle(request) abort
 			let opts.buf_id = bufnr('%')
 			call termopen(cmd, opts)
 			call s:SaveCurrentBufferPid(a:request)
+			" scroll to end
+			execute 'norm! G' 
 			execute 'wincmd p'
 		else
 			execute 'tabnew'
