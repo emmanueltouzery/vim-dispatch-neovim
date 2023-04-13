@@ -129,16 +129,20 @@ endfunction
 
 " Remove newlines and merge lines without newlines
 function! s:FilterNewlines(lines, state) abort
-	let l:lines = []
-	for line in a:lines
-		let l:line_without_newline = substitute(line, '\n\|\r', '', 'g')
-		let a:state.output .= l:line_without_newline
-		if line =~ '\n\|\r'
-			call add(l:lines, a:state.output)
-			let a:state.output = ''
-		endif
-	endfor
-	return l:lines
+	" commenting this code to fix Copen with background execution, see:
+	" https://github.com/radenling/vim-dispatch-neovim/issues/8#issuecomment-360969208
+
+	" let l:lines = []
+	" for line in a:lines
+	" 	let l:line_without_newline = substitute(line, '\n\|\r', '', 'g')
+	" 	let a:state.output .= l:line_without_newline
+	" 	if line =~ '\n\|\r'
+	" 		call add(l:lines, a:state.output)
+	" 		let a:state.output = ''
+	" 	endif
+	" endfor
+	" return l:lines
+	return a:lines
 endfunction
 
 function! s:RemoveANSI(lines)
