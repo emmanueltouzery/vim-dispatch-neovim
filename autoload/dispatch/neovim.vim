@@ -157,6 +157,20 @@ function! s:BufferOutput(job_id, data, event) dict abort
 	call writefile(l:lines, self.tempfile, "a")
 endfunction
 
+function! DispatchNeovimCleanup(buf_id, tempfile, data)
+	let term_win = bufwinnr(a:buf_id)
+	let cur_win = winnr()
+	execute term_win . ' wincmd w'
+	call feedkeys("\<C-\>\<C-n>", 'n')
+	execute cur_win . ' wincmd w'
+	let g:test_term_buf_id = a:buf_id
+	" close the terminal window
+	silent execute term_win 'wincmd c'
+
+	call writefile([a:data], a:tempfile . '.complete')
+	call dispatch#complete(a:tempfile)
+endfunction
+
 function! s:JobExit(job_id, data, event) dict abort
 	if s:UsesTerminal(self.request) && s:NeedsOutput(self.request)
 		call writefile(getbufline(self.buf_id, 1, '$'), self.tempfile)
@@ -166,15 +180,15 @@ function! s:JobExit(job_id, data, event) dict abort
 	if !self.background
 		let term_win = bufwinnr(self.buf_id)
 		if term_win != -1
-			let cur_win = winnr()
-			execute term_win . ' wincmd w'
-			call feedkeys("\<C-\>\<C-n>", 'n')
-			execute cur_win . ' wincmd w'
-			let g:test_term_buf_id = self.buf_id
-			" close the terminal window
-			silent execute term_win 'wincmd c'
+			if &filetype == 'TelescopePrompt'
+				" yolo
+				let g:neovim_dispatch_buf_id = self.buf_id
+				let g:neovim_dispatch_tempfile = self.tempfile
+				let g:neovim_dispatch_data = a:data
+				autocmd User TelescopePickerClose ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+			else
+				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
+			endif
 		endif
 	endif
-	call writefile([a:data], self.tempfile . '.complete')
-	call dispatch#complete(self.tempfile)
 endfunction
