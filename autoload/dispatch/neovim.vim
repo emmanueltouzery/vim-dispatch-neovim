@@ -186,6 +186,12 @@ function! s:JobExit(job_id, data, event) dict abort
 				let g:neovim_dispatch_tempfile = self.tempfile
 				let g:neovim_dispatch_data = a:data
 				autocmd User TelescopePickerClose ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+			elseif &filetype == 'toggleterm'
+				" yolo
+				let g:neovim_dispatch_buf_id = self.buf_id
+				let g:neovim_dispatch_tempfile = self.tempfile
+				let g:neovim_dispatch_data = a:data
+				autocmd WinLeave * ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
 			else
 				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
 			endif
