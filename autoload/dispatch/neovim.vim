@@ -192,6 +192,10 @@ function! s:JobExit(job_id, data, event) dict abort
 				let g:neovim_dispatch_tempfile = self.tempfile
 				let g:neovim_dispatch_data = a:data
 				autocmd WinLeave * ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+			elseif &filetype == 'key-menu'
+				" close the key-menu window
+				exe winnr() . "wincmd c"
+				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
 			else
 				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
 			endif
