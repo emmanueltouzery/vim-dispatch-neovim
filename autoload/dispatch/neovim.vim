@@ -5,16 +5,19 @@ endif
 let g:autoloaded_dispatch_neovim = 1
 
 function! s:UsesTerminal(request)
-	return a:request.action ==# 'start' ||
-				\(a:request.action ==# 'make' && !a:request.background)
+	return 0 ==# 0
+	" return a:request.action ==# 'start' ||
+	" 			\(a:request.action ==# 'make' && !a:request.background)
 endfunction
 
 function! s:NeedsOutput(request)
-	return a:request.action ==# 'make'
+	return 0 ==# 0
+	" return a:request.action ==# 'make'
 endfunction
 
 function! s:IsBackgroundJob(request)
-	return a:request.action ==# 'make' && a:request.background
+	return 0 ==# 1
+	" return a:request.action ==# 'make' && a:request.background
 endfunction
 
 function! s:CommandOptions(request) abort
@@ -157,18 +160,94 @@ function! s:BufferOutput(job_id, data, event) dict abort
 	call writefile(l:lines, self.tempfile, "a")
 endfunction
 
+function! s:set_current_compiler(name) abort
+  if empty(a:name)
+    unlet! b:current_compiler
+  else
+    let b:current_compiler = a:name
+  endif
+endfunction
+
+function! s:postfix(request) abort
+  let pid = dispatch#pid(a:request)
+  return '(' . a:request.handler.'/'.(!empty(pid) ? pid : '?') . ')'
+endfunction
+
+function! s:doautocmd(event) abort
+  if v:version >= 704 || (v:version == 703 && has('patch442'))
+    return 'doautocmd <nomodeline> ' . a:event
+  elseif &modelines == 0 || !&modeline
+    return 'doautocmd ' . a:event
+  else
+    return 'try|set modelines=0|doautocmd ' . a:event . '|finally|set modelines=' . &modelines . '|endtry'
+  endif
+endfunction
+
+function! s:has_loclist_entries()
+	for item in getqflist()
+		if item.lnum
+			return 1
+		endif
+	endfor
+	return 0
+endfunction
+
 function! DispatchNeovimCleanup(buf_id, tempfile, data)
 	let term_win = bufwinnr(a:buf_id)
 	let cur_win = winnr()
+	let event = ''
 	execute term_win . ' wincmd w'
 	call feedkeys("\<C-\>\<C-n>", 'n')
 	execute cur_win . ' wincmd w'
 	let g:test_term_buf_id = a:buf_id
 	" close the terminal window
-	silent execute term_win 'wincmd c'
+	" silent execute term_win 'wincmd c'
 
 	call writefile([a:data], a:tempfile . '.complete')
-	call dispatch#complete(a:tempfile)
+	" call dispatch#complete(a:tempfile)
+	
+	let request = dispatch#request()
+	let cd = 'lcd'
+	let dir = getcwd()
+	let efm = &l:efm
+	let compiler = get(b:, 'current_compiler', '')
+	let makeprg = &l:makeprg
+	try
+		call s:set_current_compiler(get(request, 'compiler', ''))
+		exe cd dispatch#fnameescape(request.directory)
+		" if a:0 && a:1
+		" 	let &l:efm = '%+G%.%#'
+		" else
+			let &l:efm = request.format
+		" endif
+		let &l:makeprg = dispatch#escape(request.expanded)
+		let title = ':Dispatch '.dispatch#escape(request.expanded) . ' ' . s:postfix(request)
+		" if len(event)
+			exe s:doautocmd('QuickFixCmdPre ' . event)
+		" endif
+		if exists(':chistory') && get(getqflist({'title': 1}), 'title', '') ==# title
+			call setqflist([], 'r')
+			execute 'noautocmd caddfile' dispatch#fnameescape(request.file)
+		else
+			execute 'noautocmd cgetfile' dispatch#fnameescape(request.file)
+		endif
+		if exists(':chistory')
+			call setqflist([], 'r', {'title': title})
+		endif
+		" if len(event)
+			exe s:doautocmd('QuickFixCmdPost ' . event)
+		" endif
+		let was_qf = s:has_loclist_entries()
+		if was_qf ==# 0
+			" close the terminal window
+			silent execute term_win 'wincmd c'
+		endif
+	finally
+		exe cd dispatch#fnameescape(dir)
+		let &l:efm = efm
+		let &l:makeprg = makeprg
+		call s:set_current_compiler(compiler)
+	endtry
 endfunction
 
 function! s:JobExit(job_id, data, event) dict abort
@@ -177,28 +256,28 @@ function! s:JobExit(job_id, data, event) dict abort
 	endif
 
 	" Clean up terminal window if visible
-	if !self.background
-		let term_win = bufwinnr(self.buf_id)
-		if term_win != -1
-			if &filetype == 'TelescopePrompt'
-				" yolo
+	" if !self.background
+	" 	let term_win = bufwinnr(self.buf_id)
+	" 	if term_win != -1
+	" 		if &filetype == 'TelescopePrompt'
+	" 			" yolo
 				let g:neovim_dispatch_buf_id = self.buf_id
 				let g:neovim_dispatch_tempfile = self.tempfile
 				let g:neovim_dispatch_data = a:data
-				autocmd User TelescopePickerClose ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
-			elseif &filetype == 'toggleterm'
-				" yolo
-				let g:neovim_dispatch_buf_id = self.buf_id
-				let g:neovim_dispatch_tempfile = self.tempfile
-				let g:neovim_dispatch_data = a:data
-				autocmd WinLeave * ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
-			elseif &filetype == 'key-menu'
-				" close the key-menu window
-				exe winnr() . "wincmd c"
+	" 			autocmd User TelescopePickerClose ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+	" 		elseif &filetype == 'toggleterm'
+	" 			" yolo
+	" 			let g:neovim_dispatch_buf_id = self.buf_id
+	" 			let g:neovim_dispatch_tempfile = self.tempfile
+	" 			let g:neovim_dispatch_data = a:data
+	" 			autocmd WinLeave * ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+	" 		elseif &filetype == 'key-menu'
+	" 			" close the key-menu window
+	" 			exe winnr() . "wincmd c"
 				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
-			else
-				call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
-			endif
-		endif
-	endif
+	" 		else
+	" 			call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
+	" 		endif
+	" 	endif
+	" endif
 endfunction
