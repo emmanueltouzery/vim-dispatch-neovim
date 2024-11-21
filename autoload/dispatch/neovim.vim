@@ -204,6 +204,7 @@ function! DispatchNeovimCleanup(buf_id, tempfile, data)
 	" silent execute term_win 'wincmd c'
 
 	call writefile([a:data], a:tempfile . '.complete')
+	let status = readfile(a:tempfile . '.complete', 1)[0]
 	" call dispatch#complete(a:tempfile)
 	
 	let request = dispatch#request()
@@ -239,8 +240,10 @@ function! DispatchNeovimCleanup(buf_id, tempfile, data)
 		" endif
 		let was_qf = s:has_loclist_entries()
 		if was_qf ==# 0
-			" close the terminal window
-			silent execute term_win 'wincmd c'
+			if status ==# 0
+				" close the terminal window
+				silent execute term_win 'wincmd c'
+			endif
 		endif
 	finally
 		exe cd dispatch#fnameescape(dir)
