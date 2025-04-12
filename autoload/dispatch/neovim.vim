@@ -21,6 +21,8 @@ function! s:IsBackgroundJob(request)
 endfunction
 
 function! s:CommandOptions(request) abort
+	call s:set_current_compiler(get(a:request, 'compiler', ''))
+	call setqflist([], 'r')
 	let opts = {
 				\ 'name': a:request.title,
 				\ 'background': a:request.background,
@@ -43,6 +45,7 @@ function! s:CommandOptions(request) abort
 						\})
 		else
 			call extend(opts, {
+						\ 'on_stdout': function('s:Stdout'),
 						\ 'on_exit': function('s:JobExit'),
 						\ 'tempfile': a:request.file,
 						\})
@@ -152,6 +155,11 @@ function! s:RemoveANSI(lines)
 	return map(a:lines, 'substitute(v:val, ''\e\[[0-9;]*[a-zA-Z]'', "", "g")')
 endfunction
 
+function! s:Stdout(job_id, data, event) dict abort
+	let l:lines = a:data
+	caddexpr l:lines
+endfunction
+
 function! s:BufferOutput(job_id, data, event) dict abort
 	let l:lines = a:data
 	let l:lines = filter(l:lines, '!empty(v:val)')
@@ -196,9 +204,24 @@ function! DispatchNeovimCleanup(buf_id, tempfile, data)
 	let term_win = bufwinnr(a:buf_id)
 	let cur_win = winnr()
 	let event = ''
-	execute term_win . ' wincmd w'
-	call feedkeys("\<C-\>\<C-n>", 'n')
-	execute cur_win . ' wincmd w'
+
+	if &filetype == 'TelescopePrompt'
+		" yolo
+		autocmd User TelescopePickerClose ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+	elseif &filetype == 'toggleterm'
+		" yolo
+		autocmd WinLeave * ++once call DispatchNeovimCleanup(g:neovim_dispatch_buf_id, g:neovim_dispatch_tempfile, g:neovim_dispatch_data)
+	elseif &filetype == 'key-menu'
+		" close the key-menu window
+		exe winnr() . "wincmd c"
+		call DispatchNeovimCleanup(self.buf_id, self.tempfile, a:data)
+	else
+		execute term_win . ' wincmd w'
+		call feedkeys("\<C-\>\<C-n>", 'n')
+		execute cur_win . ' wincmd w'
+	endif
+
+
 	let g:test_term_buf_id = a:buf_id
 	" close the terminal window
 	" silent execute term_win 'wincmd c'
@@ -227,6 +250,10 @@ function! DispatchNeovimCleanup(buf_id, tempfile, data)
 			exe s:doautocmd('QuickFixCmdPre ' . event)
 		" endif
 		if exists(':chistory') && get(getqflist({'title': 1}), 'title', '') ==# title
+			" here we set the QF list at the end. Now that we add
+			" progressively to the QF using caddexpr, maybe it
+			" could be removed. leaving it in for now "just in
+			" case"
 			call setqflist([], 'r')
 			execute 'noautocmd caddfile' dispatch#fnameescape(request.file)
 		else
