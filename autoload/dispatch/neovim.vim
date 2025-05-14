@@ -3,6 +3,7 @@ if exists('g:autoloaded_dispatch_neovim')
 endif
 
 let g:autoloaded_dispatch_neovim = 1
+let g:blacklisted_jobs = {}
 
 function! s:UsesTerminal(request)
 	return 0 ==# 0
@@ -156,8 +157,17 @@ function! s:RemoveANSI(lines)
 endfunction
 
 function! s:Stdout(job_id, data, event) dict abort
-	let l:lines = a:data
-	caddexpr l:lines
+	" guard to prevent perf issues
+	if has_key(g:blacklisted_jobs, a:job_id)
+		" do nothing
+	elseif len(a:data) < 6000
+		" add to the QF list as the tests are running
+		let l:lines = a:data
+		caddexpr l:lines
+	else
+		" too many lines, disable adding to QF list in realtime
+		let g:blacklisted_jobs[a:job_id] = 1
+	endif
 endfunction
 
 function! s:BufferOutput(job_id, data, event) dict abort
@@ -252,8 +262,9 @@ function! DispatchNeovimCleanup(buf_id, tempfile, data)
 		if exists(':chistory') && get(getqflist({'title': 1}), 'title', '') ==# title
 			" here we set the QF list at the end. Now that we add
 			" progressively to the QF using caddexpr, maybe it
-			" could be removed. leaving it in for now "just in
-			" case"
+			" could be removed, but if the output comes in batches
+			" >6000 lines then we don't add progressively, so
+			" still needed.
 			call setqflist([], 'r')
 			execute 'noautocmd caddfile' dispatch#fnameescape(request.file)
 		else
